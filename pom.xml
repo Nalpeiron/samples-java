@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.nalpeiron.zentitle</groupId>
+    <artifactId>licensing-client-samples</artifactId>
+    <version>1.0.1056-beta-1</version>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <httpclient-version>5.2.1</httpclient-version>
+        <jackson-version>2.17.1</jackson-version>
+    </properties>
+
+    <dependencies>
+        <!--
+        run following command to install the jar file to local maven repository:
+        mvn install:install-file -Dfile=licensing-client-1.0.1056-beta-1.jar -DgroupId=com.nalpeiron.zentitle -DartifactId=licensing-client -Dversion=1.0.1056-beta-1 -Dpackaging=jar
+        -->
+        <dependency>
+            <groupId>com.nalpeiron.zentitle</groupId>
+            <artifactId>licensing-client</artifactId>
+            <version>1.0.1056-beta-1</version>
+        </dependency>
+
+        <!-- HTTP client: apache client -->
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+            <version>${httpclient-version}</version>
+        </dependency>
+
+        <!-- JSON processing: jackson -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>${jackson-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>${jackson-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.jaxrs</groupId>
+            <artifactId>jackson-jaxrs-json-provider</artifactId>
+            <version>${jackson-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>${jackson-version}</version>
+        </dependency>
+    </dependencies>
+</project>
