@@ -74,7 +74,7 @@ public class Program {
         if (new File("appsettings.json").exists()) {
             appSettings = new File("appsettings.json");
         } else {
-            appSettings = new File("samples/src/main/java/com/nalpeiron/zentitle/sample/appsettings.json");
+            appSettings = new File("src/main/java/com/nalpeiron/zentitle/sample/appsettings.json");
         }
         final AppSettings config = objectMapper.readValue(appSettings, AppSettings.class);
 
