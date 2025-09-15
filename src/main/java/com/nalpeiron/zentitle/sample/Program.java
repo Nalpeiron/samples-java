@@ -6,20 +6,21 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.nalpeiron.zentitle.licensingclient.Activation;
+import com.nalpeiron.zentitle.corelib.jni.ZentitleJniLazyLoading;
 import com.nalpeiron.zentitle.licensingclient.ActivationState;
-import com.nalpeiron.zentitle.licensingclient.IActivation;
+import com.nalpeiron.zentitle.licensingclient.ISharedActivation;
+import com.nalpeiron.zentitle.licensingclient.SharedActivation;
+import com.nalpeiron.zentitle.licensingclient.SharedActivationExtensions;
 import com.nalpeiron.zentitle.licensingclient.api.model.ActivationMode;
 import com.nalpeiron.zentitle.licensingclient.licensingapi.HttpClientFactory;
 import com.nalpeiron.zentitle.licensingclient.licensingapi.LicensingApiOptions;
-import com.nalpeiron.zentitle.licensingclient.options.ActivationOptions;
-import com.nalpeiron.zentitle.licensingclient.options.OfflineActivationOptions;
-import com.nalpeiron.zentitle.licensingclient.options.OnlineActivationOptions;
+import com.nalpeiron.zentitle.licensingclient.options.*;
 import com.nalpeiron.zentitle.licensingclient.persistence.IPersistence;
 import com.nalpeiron.zentitle.licensingclient.persistence.Persistence;
 import com.nalpeiron.zentitle.licensingclient.persistence.storage.IActivationStorage;
 import com.nalpeiron.zentitle.licensingclient.services.DateTimeProvider;
 import com.nalpeiron.zentitle.licensingclient.zentitle2core.DeviceFingerprint;
+import com.nalpeiron.zentitle.licensingclient.zentitle2core.Zentitle2CoreFactory;
 import com.nalpeiron.zentitle.sample.gui.Prompt;
 import com.nalpeiron.zentitle.sample.options.AppSettings;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -33,6 +34,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -69,18 +71,24 @@ public class Program {
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
     }
 
-    public void run() throws IOException {
+    public void run() throws Exception {
         final File appSettings;
         if (new File("appsettings.json").exists()) {
             appSettings = new File("appsettings.json");
-        } else {
+        } else if (new File("src/main/java/com/nalpeiron/zentitle/sample/appsettings.json").exists()) {
             appSettings = new File("src/main/java/com/nalpeiron/zentitle/sample/appsettings.json");
+        } else {
+            appSettings = new File("samples/src/main/java/com/nalpeiron/zentitle/sample/appsettings.json");
         }
         final AppSettings config = objectMapper.readValue(appSettings, AppSettings.class);
 
         final boolean useCoreLibrary = config.isUseCoreLibrary();
         if (useCoreLibrary) {
             logger.warn("- Using Zentitle2Core C++ library for device fingerprint, secure license storage and offline activation operations");
+            final boolean isPrintLibraryLogs = config.isPrintLibraryLogs();
+            if (isPrintLibraryLogs) {
+                enableCoreLibraryLogging();
+            }
         } else {
             logger.warn("- Zentitle2Core C++ library usage is disabled in 'appsettings.json', the won't be loaded and offline activation won't work");
         }
@@ -119,11 +127,16 @@ public class Program {
                 offlineActivationOptions);
         activationOptions.setTransitionToNewStateCallback((oldState, updatedActivation) ->
                 logger.info("Activation state changed from [{}] to [{}]", oldState, updatedActivation.getState()));
-        final IActivation activation = new Activation(activationOptions, persistence);
+
+        final ActivationLockingOptions activationLockingOptions = new ActivationLockingOptionsBuilder()
+                .useSystemLock("Global-Zentitle.Licensing.Client-SampleApplication")
+                .build();
+
+        final ISharedActivation activation = new SharedActivation(activationOptions, activationLockingOptions, persistence);
 
         terminal.writer().println("Initializing activation...");
         terminal.flush();
-        activation.initialize();
+        SharedActivationExtensions.initializeWithLock(activation);
 
         final LineReader lineReader = LineReaderBuilder.builder()
                 .terminal(terminal)
@@ -131,13 +144,16 @@ public class Program {
         String selectedOption = null;
 
         do {
-            final ActivationMode activationMode = activation.getInfo().getMode();
-            final ActivationAction[] activationActions = activationActionsStatic.getAvailableActions().get(activation.getState());
-            final List<String> options = Arrays.stream(activationActions)
-                    .filter(action -> action.getAvailableInModes().contains(activationMode))
-                    .map(ActivationAction::getName)
-                    .collect(Collectors.toList());
-            options.add(QUIT_ACTION);
+            final List<String> options = activation.executeWithLock(a -> {
+                final ActivationMode activationMode = a.getInfo().getMode();
+                final ActivationAction[] activationActions = activationActionsStatic.getAvailableActions().get(a.getState());
+                final List<String> opt = Arrays.stream(activationActions)
+                        .filter(action -> action.getAvailableInModes().contains(activationMode))
+                        .map(ActivationAction::getName)
+                        .collect(Collectors.toList());
+                opt.add(QUIT_ACTION);
+                return opt;
+            });
 
             prompt.showMenu(options);
             final Integer choice = readInput(lineReader, options);
@@ -153,6 +169,18 @@ public class Program {
 
         activation.close();
         httpClient.close();
+    }
+
+    private void enableCoreLibraryLogging() {
+        final ZentitleJniLazyLoading zentitleJniLazyLoading = Zentitle2CoreFactory.getZentitleJNI();
+        final String pathToCoreLibLogFile = Paths.get("core-lib-test.log").toString();
+        logger.info("Enabling core library logging to file: {}", pathToCoreLibLogFile);
+        final boolean enabled = zentitleJniLazyLoading.enableLogging(pathToCoreLibLogFile);
+        if (enabled) {
+            logger.info("Core library logging enabled");
+        } else {
+            logger.warn("Failed to enable core library logging");
+        }
     }
 
     private Integer readInput(final LineReader lineReader, final List<String> options) {
@@ -173,7 +201,7 @@ public class Program {
         return choice;
     }
 
-    private String processInput(final List<String> options, final int choice, final IActivation activation) {
+    private String processInput(final List<String> options, final int choice, final ISharedActivation activation) {
         final String selectedOption = options.get(choice - 1);
         terminal.writer().println("You selected: " + selectedOption);
         terminal.flush();
@@ -185,22 +213,24 @@ public class Program {
             terminal.writer().println("Performing action for: " + selectedOption);
             terminal.flush();
 
-            final ActivationState state = activation.getState();
-            final ActivationAction activationAction = Arrays.stream(activationActionsStatic.getAvailableActions().get(state))
-                    .filter(action -> action.getName().equals(selectedOption))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("Unknown action: " + selectedOption));
-            final LockingActivationActionHandler.Callback callback = callbackActivation -> {
-                try {
-                    activationAction.executeAction(callbackActivation);
-                } catch (final IOException exception) {
-                    throw new IllegalStateException(exception);
+            activation.executeWithLock(a -> {
+                final ActivationState state = a.getState();
+                final ActivationAction activationAction = Arrays.stream(activationActionsStatic.getAvailableActions().get(state))
+                        .filter(action -> action.getName().equals(selectedOption))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("Unknown action: " + selectedOption));
+                final LockingActivationActionHandler.Callback callback = callbackActivation -> {
+                    try {
+                        activationAction.executeAction(callbackActivation);
+                    } catch (final IOException exception) {
+                        throw new IllegalStateException(exception);
+                    }
+                };
+                final boolean result = LockingActivationActionHandler.lockPullStateAndExecute(callback, a);
+                if (!result) {
+                    displayHelper.writeError("Local activation state changed, operation aborted and state refreshed");
                 }
-            };
-            final boolean result = LockingActivationActionHandler.lockPullStateAndExecute(callback, activation);
-            if (!result) {
-                displayHelper.writeError("Local activation state changed, operation aborted and state refreshed");
-            }
+            });
         }
         return selectedOption;
     }

@@ -7,8 +7,8 @@ public class AppSettings {
     @JsonProperty("UseCoreLibrary")
     private boolean useCoreLibrary;
 
-    @JsonProperty("CoreLibPath")
-    private String coreLibPath;
+    @JsonProperty("PrintLibraryLogs")
+    private boolean printLibraryLogs;
 
     @JsonProperty("Licensing")
     private Licensing licensing;
@@ -17,8 +17,8 @@ public class AppSettings {
         return useCoreLibrary;
     }
 
-    public String getCoreLibPath() {
-        return coreLibPath;
+    public boolean isPrintLibraryLogs() {
+        return printLibraryLogs;
     }
 
     public Licensing getLicensing() {

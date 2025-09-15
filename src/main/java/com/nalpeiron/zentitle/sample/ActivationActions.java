@@ -1,14 +1,13 @@
 package com.nalpeiron.zentitle.sample;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nalpeiron.zentitle.sample.gui.Panel;
-import com.nalpeiron.zentitle.sample.gui.Prompt;
-import com.nalpeiron.zentitle.licensingclient.ActivationFeature;
 import com.nalpeiron.zentitle.licensingclient.ActivationState;
+import com.nalpeiron.zentitle.licensingclient.IActivationFeature;
 import com.nalpeiron.zentitle.licensingclient.api.model.ActivationMode;
 import com.nalpeiron.zentitle.licensingclient.api.model.FeatureType;
 import com.nalpeiron.zentitle.licensingclient.persistence.models.ActivationEntitlementData;
-import org.apache.commons.lang3.StringUtils;
+import com.nalpeiron.zentitle.sample.gui.Panel;
+import com.nalpeiron.zentitle.sample.gui.Prompt;
 import org.jline.terminal.Terminal;
 
 import java.time.OffsetDateTime;
@@ -146,8 +145,8 @@ public class ActivationActions {
         checkoutFeature = new ActivationAction(
                 "Checkout advanced feature",
                 (activation) -> {
-                    final List<ActivationFeature> featuresToCheckout = activation.getInfo().getFeatures().stream()
-                            .filter(feature -> !FeatureType.BOOL.equals(feature.getType()) && (!feature.getAvailable().isPresent() || (feature.getAvailable().get() > 0)))
+                    final List<IActivationFeature> featuresToCheckout = activation.getInfo().getFeatures().stream()
+                            .filter(feature -> !FeatureType.BOOL.equals(feature.getType()) && (feature.getAvailable() == null || (feature.getAvailable() > 0)))
                             .collect(Collectors.toList());
 
                     if (featuresToCheckout.isEmpty()) {
@@ -160,13 +159,15 @@ public class ActivationActions {
                     displayHelper.showFeaturesTable(featuresToCheckout);
 
                     final List<String> keys = featuresToCheckout.stream()
-                            .map(ActivationFeature::getKey)
+                            .map(IActivationFeature::getKey)
                             .collect(Collectors.toList());
                     final String featureKey = prompt.select("Select feature to checkout", keys);
                     final int amountToCheckout = prompt.inputInt("Specify amount to checkout: ");
                     terminal.writer().println("Checking out " + amountToCheckout + " " + (amountToCheckout > 1 ? "features" : "feature") + " with key '" + featureKey + "'");
                     terminal.flush();
-                    activation.getFeatures().checkout(featureKey, amountToCheckout);
+                    final IActivationFeature featureToCheckout = activation.getFeatures().tryGet(featureKey)
+                            .orElseThrow(() -> new IllegalStateException("Feature with key '" + featureKey + "' not found"));
+                    activation.checkoutFeature(featureToCheckout, amountToCheckout);
 
                     terminal.writer().println("Feature successfully checked out!");
                     terminal.writer().println();
@@ -179,8 +180,8 @@ public class ActivationActions {
         returnFeature = new ActivationAction(
                 "Return element-pool feature",
                 (activation) -> {
-                    final List<ActivationFeature> featuresToReturn = activation.getInfo().getFeatures().stream()
-                            .filter(feature -> feature.getActive().isPresent() && (feature.getActive().get() > 0) && (FeatureType.ELEMENT_POOL.equals(feature.getType())))
+                    final List<IActivationFeature> featuresToReturn = activation.getInfo().getFeatures().stream()
+                            .filter(feature -> (feature.getActive() != null) && (feature.getActive() > 0) && (FeatureType.ELEMENT_POOL.equals(feature.getType())))
                             .collect(Collectors.toList());
 
                     if (featuresToReturn.isEmpty()) {
@@ -193,14 +194,16 @@ public class ActivationActions {
                     displayHelper.showFeaturesTable(featuresToReturn);
 
                     final List<String> featureKeys = featuresToReturn.stream()
-                            .map(ActivationFeature::getKey)
+                            .map(IActivationFeature::getKey)
                             .collect(Collectors.toList());
                     final String featureKey = prompt.select("Select feature to return", featureKeys);
                     final int amountToReturn = prompt.inputInt("Specify amount to return: ");
 
                     terminal.writer().println("Returning " + amountToReturn + " " + (amountToReturn > 1 ? "features" : "feature") + " with key '" + featureKey + "'");
                     terminal.flush();
-                    activation.getFeatures().returnFeature(featureKey, amountToReturn);
+                    final IActivationFeature feature = activation.getFeatures().tryGet(featureKey)
+                            .orElseThrow(() -> new IllegalStateException("Feature with key '" + featureKey + "' not found"));
+                    activation.returnFeature(feature, amountToReturn);
 
                     terminal.writer().println("Feature successfully returned!");
                     terminal.writer().println();
@@ -213,7 +216,7 @@ public class ActivationActions {
         trackBoolFeatureUsage = new ActivationAction(
                 "Track usage of a bool feature",
                 (activation) -> {
-                    List<ActivationFeature> boolFeatures = activation.getInfo().getFeatures().stream()
+                    List<IActivationFeature> boolFeatures = activation.getInfo().getFeatures().stream()
                             .filter(f -> f.getType() == FeatureType.BOOL)
                             .collect(Collectors.toList());
 
@@ -226,8 +229,10 @@ public class ActivationActions {
                     terminal.flush();
                     displayHelper.showFeaturesTable(boolFeatures);
 
-                    final String featureKey = prompt.select("Select feature for tracking the usage", boolFeatures.stream().map(ActivationFeature::getKey).collect(Collectors.toList()));
-                    activation.getFeatures().trackUsage(featureKey);
+                    final String featureKey = prompt.select("Select feature for tracking the usage", boolFeatures.stream().map(IActivationFeature::getKey).collect(Collectors.toList()));
+                    final IActivationFeature feature = activation.getFeatures().tryGet(featureKey)
+                            .orElseThrow(() -> new IllegalStateException("Feature with key '" + featureKey + "' not found"));
+                    activation.trackFeatureUsage(feature);
                     terminal.writer().println("Feature usage successfully tracked!");
                     terminal.flush();
                 },
@@ -277,7 +282,7 @@ public class ActivationActions {
         availableActions.put(ActivationState.ACTIVE, new ActivationAction[]{
                 showActivationInfo, pullActivationStateFromServer, pullActivationStateFromLocalStorage,
                 checkoutFeature, returnFeature, trackBoolFeatureUsage, refreshActivationLease,
-                deactivate, refreshOfflineActivationLease, deactivateOffline, getActivationEntitlement
+                deactivate, deactivateOffline, getActivationEntitlement
         });
         availableActions.put(ActivationState.LEASE_EXPIRED, new ActivationAction[]{
                 showActivationInfo, pullActivationStateFromServer, pullActivationStateFromLocalStorage,

@@ -1,11 +1,11 @@
 package com.nalpeiron.zentitle.sample;
 
-import com.nalpeiron.zentitle.licensingclient.zentitle2core.PredefinedSystemFolder;
-import com.nalpeiron.zentitle.sample.gui.Prompt;
 import com.nalpeiron.zentitle.licensingclient.persistence.PersistentData;
 import com.nalpeiron.zentitle.licensingclient.persistence.storage.IActivationStorage;
 import com.nalpeiron.zentitle.licensingclient.persistence.storage.PlainTextFileActivationStorage;
+import com.nalpeiron.zentitle.licensingclient.zentitle2core.PredefinedSystemFolder;
 import com.nalpeiron.zentitle.licensingclient.zentitle2core.SecureActivationStorage;
+import com.nalpeiron.zentitle.sample.gui.Prompt;
 import org.jline.terminal.Terminal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

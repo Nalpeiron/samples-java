@@ -1,10 +1,10 @@
 package com.nalpeiron.zentitle.sample;
 
-import com.nalpeiron.zentitle.sample.gui.Panel;
-import com.nalpeiron.zentitle.sample.gui.TableProxy;
-import com.nalpeiron.zentitle.licensingclient.ActivationFeature;
 import com.nalpeiron.zentitle.licensingclient.ActivationState;
 import com.nalpeiron.zentitle.licensingclient.IActivation;
+import com.nalpeiron.zentitle.licensingclient.IActivationFeature;
+import com.nalpeiron.zentitle.sample.gui.Panel;
+import com.nalpeiron.zentitle.sample.gui.TableProxy;
 import org.jline.terminal.Terminal;
 
 import java.util.List;
@@ -43,11 +43,11 @@ public class DisplayHelper {
         terminal.flush();
     }
 
-    public void showFeaturesTable(final List<ActivationFeature> features) {
+    public void showFeaturesTable(final List<IActivationFeature> features) {
         showFeaturesTable(features, null);
     }
 
-    public void showFeaturesTable(final List<ActivationFeature> features, final String keyToHighlight) {
+    public void showFeaturesTable(final List<IActivationFeature> features, final String keyToHighlight) {
         final TableProxy table = new TableProxy()
                 .addColumn("Feature Key")
                 .addColumn("Feature Type")
@@ -55,13 +55,13 @@ public class DisplayHelper {
                 .addColumn("Available")
                 .addColumn("Total");
 
-        for (final ActivationFeature feature : features) {
+        for (final IActivationFeature feature : features) {
             table.addRow(
                     feature.getKey(),
                     feature.getType().toString(),
-                    !feature.getActive().isPresent() ? "" : feature.getActive().get().toString(),
-                    !feature.getAvailable().isPresent() ? "Unlimited" : feature.getAvailable().get().toString(),
-                    !feature.getTotal().isPresent() ? "Unlimited" : feature.getTotal().get().toString()
+                    feature.getActive() == null ? "" : feature.getActive().toString(),
+                    feature.getAvailable() == null ? "Unlimited" : feature.getAvailable().toString(),
+                    feature.getTotal() == null ? "Unlimited" : feature.getTotal().toString()
             );
         }
 
