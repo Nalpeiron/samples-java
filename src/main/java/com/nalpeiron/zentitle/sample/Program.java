@@ -175,12 +175,8 @@ public class Program {
         final ZentitleJniLazyLoading zentitleJniLazyLoading = Zentitle2CoreFactory.getZentitleJNI();
         final String pathToCoreLibLogFile = Paths.get("core-lib-test.log").toString();
         logger.info("Enabling core library logging to file: {}", pathToCoreLibLogFile);
-        final boolean enabled = zentitleJniLazyLoading.enableLogging(pathToCoreLibLogFile);
-        if (enabled) {
-            logger.info("Core library logging enabled");
-        } else {
-            logger.warn("Failed to enable core library logging");
-        }
+        zentitleJniLazyLoading.enableLogging(pathToCoreLibLogFile);
+        logger.info("Core library logging enabled");
     }
 
     private Integer readInput(final LineReader lineReader, final List<String> options) {
