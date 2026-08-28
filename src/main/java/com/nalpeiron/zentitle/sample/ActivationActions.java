@@ -1,9 +1,12 @@
 package com.nalpeiron.zentitle.sample;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nalpeiron.zentitle.licensingclient.ApplicationEvent;
 import com.nalpeiron.zentitle.licensingclient.ActivationState;
 import com.nalpeiron.zentitle.licensingclient.IActivationFeature;
+import com.nalpeiron.zentitle.licensingclient.TrackEventRes;
 import com.nalpeiron.zentitle.licensingclient.api.model.ActivationMode;
+import com.nalpeiron.zentitle.licensingclient.api.model.ApplicationEventType;
 import com.nalpeiron.zentitle.licensingclient.api.model.FeatureType;
 import com.nalpeiron.zentitle.licensingclient.persistence.models.ActivationEntitlementData;
 import com.nalpeiron.zentitle.sample.gui.Panel;
@@ -15,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class ActivationActions {
 
@@ -32,6 +36,7 @@ public class ActivationActions {
     private final ActivationAction getActivationEntitlement;
     private final ActivationAction deactivate;
     private final ActivationAction deactivateOffline;
+    private final ActivationAction trackApplicationEvent;
     private final Map<ActivationState, ActivationAction[]> availableActions;
 
     public ActivationActions(final Terminal terminal, final Prompt prompt, final DisplayHelper displayHelper, final ObjectMapper objectMapper) {
@@ -278,16 +283,40 @@ public class ActivationActions {
                 new ActivationMode[]{ActivationMode.OFFLINE}
         );
 
+        trackApplicationEvent = new ActivationAction(
+                "Track application event",
+                (activation) -> {
+                    final String eventName = prompt.input("Enter event name: ");
+                    final List<String> eventTypes = Stream.of(ApplicationEventType.values())
+                            .map(Enum::name)
+                            .collect(Collectors.toList());
+                    final String selectedEventType = prompt.select("Select event type", eventTypes);
+                    final ApplicationEventType eventType = ApplicationEventType.valueOf(selectedEventType);
+
+                    terminal.writer().println("Tracking application event...");
+                    terminal.flush();
+
+                    final ApplicationEvent appEvent = new ApplicationEvent(eventName, eventType);
+                    final TrackEventRes res = activation.trackEvent(appEvent);
+                    if (res.isAccepted()) {
+                        displayHelper.writeSuccess("Event successfully tracked");
+                    } else {
+                        displayHelper.writeError("Event could not be tracked : " + res.getRejectionReason());
+                    }
+                },
+                new ActivationMode[]{ActivationMode.ONLINE}
+        );
+
         availableActions = new HashMap<>();
         availableActions.put(ActivationState.ACTIVE, new ActivationAction[]{
                 showActivationInfo, pullActivationStateFromServer, pullActivationStateFromLocalStorage,
                 checkoutFeature, returnFeature, trackBoolFeatureUsage, refreshActivationLease,
-                deactivate, deactivateOffline, getActivationEntitlement
+                deactivate, deactivateOffline, getActivationEntitlement, trackApplicationEvent
         });
         availableActions.put(ActivationState.LEASE_EXPIRED, new ActivationAction[]{
                 showActivationInfo, pullActivationStateFromServer, pullActivationStateFromLocalStorage,
                 refreshActivationLease, refreshOfflineActivationLease, deactivate, deactivateOffline,
-                getActivationEntitlement
+                getActivationEntitlement, trackApplicationEvent
         });
         availableActions.put(ActivationState.NOT_ACTIVATED, new ActivationAction[]{
                 showActivationInfo, pullActivationStateFromLocalStorage,
@@ -296,7 +325,7 @@ public class ActivationActions {
         availableActions.put(ActivationState.ENTITLEMENT_NOT_ACTIVE, new ActivationAction[]{
                 showActivationInfo, pullActivationStateFromServer, pullActivationStateFromLocalStorage,
                 getActivationEntitlement,
-                activateWithCode, generateOfflineActivationRequest, activateOffline
+                activateWithCode, generateOfflineActivationRequest, activateOffline, trackApplicationEvent
         });
 
     }
